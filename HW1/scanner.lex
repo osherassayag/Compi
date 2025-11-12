@@ -6,6 +6,8 @@
 digit [0-9]
 pos_digit [1-9]
 letter [a-zA-z]
+whitespace [\t\n]
+
 
 VOID void
 INT int 
@@ -33,10 +35,12 @@ RBRACK ]
 ASSIGN = 
 RELOP == | != | < | > | <= | >=
 BINOP + | - | * | \/
-COMMENT \/\/[^\n\t]
+COMMENT \/\/[^\n\r(\r\n)]*
 ID letter+(letter | digit)*
 NUM pos_digit+digit* | 0
 NUM_B NUMb
+
+
 %%
 
 
