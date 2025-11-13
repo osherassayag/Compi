@@ -3,10 +3,18 @@
 %option yylineno
 %option noyywrap
 
+
+static char[1024] str;
+
+
 digit [0-9]
 pos_digit [1-9]
 letter [a-zA-z]
 whitespace [\t\n]
+
+
+%x COMMENT 
+%x STRING 
 
 
 VOID void
@@ -35,7 +43,9 @@ RBRACK ]
 ASSIGN = 
 RELOP == | != | < | > | <= | >=
 BINOP + | - | * | \/
-COMMENT \/\/[^\n\r(\r\n)]*
+
+
+
 ID letter+(letter | digit)*
 NUM pos_digit+digit* | 0
 NUM_B NUMb
@@ -46,4 +56,18 @@ NUM_B NUMb
 
 
 
+
 %%
+
+\"      BEGIN(STRING);
+<STRING>\"      {}
+<STRING>
+
+
+
+%%
+void reset_str() {
+    for(int i = 0; i < 1023; i++) str[i] = 0;
+    str[i] = '\0';
+}
+
