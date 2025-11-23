@@ -99,7 +99,7 @@ NUM_B {NUM}b
 <STRING_COND>\\0     {appendChar(buffer, '\0');}
 <STRING_COND>{hex}     {appendChar(buffer, hexToChar(yytext));}
 <STRING_COND>{new_line} {output::errorUnclosedString();}
-<STRING_COND>\\.      {output::errorUndefinedEscape(yytext + 1);}
+<STRING_COND>(\\x({letter}|{digit})?({letter}|{digit}))|(\\.)      {output::errorUndefinedEscape(yytext + 1);}
 <STRING_COND>.       {appendChar(buffer, yytext[0]);}
 <STRING_COND><<EOF>> {output::errorUnclosedString();}
 
