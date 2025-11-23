@@ -12,16 +12,14 @@ void appendChar(char buffer[BUFFER_SIZE], char c);
 char hexToChar(char *s);
 %}
 
-
 %option yylineno
 %option noyywrap
 
 digit [0-9]
 pos_digit [1-9]
 letter [a-zA-z]
-whitespace [\t\n]
+whitespace [ \t\r\n]
 
-%x COMMENT
 %x STRING_COND 
 
 VOID void
@@ -39,29 +37,57 @@ ELSE else
 WHILE while 
 BREAK break 
 CONTINUE continue 
-SC ;
-COMMA ,
-LPAREN (
-RPAREN )
-LBRACE {
-RBRACE }
-LBRACK [
-RBRACK ]
-ASSIGN = 
-RELOP == | != | < | > | <= | >=
-BINOP + | - | * | \/
+SC ";"
+COMMA ","
+LPAREN "("
+RPAREN ")"
+LBRACE "{"
+RBRACE "}"
+LBRACK "["
+RBRACK "]"
+ASSIGN "="
+RELOP "=="|"!="|"<"|">"|"<="|">="
+BINOP "+"|"-"|"*"|"\/"
 
 
 new_line  [\n\r]
 hex \\x(([2-6][0-9A-Fa-f])|(7[0-9A-Ea-e]))
 ID {letter}({letter}|{digit})*
-NUM ({pos_digit}{digit}*) | 0
+NUM ({pos_digit}{digit}*)|0
 NUM_B {NUM}b
-
 
 %%
 
 {VOID}  {return VOID;}
+{INT}   {return INT;}
+{BYTE}  {return BYTE;}
+{BOOL}	{ return BOOL; }
+{AND}	{ return AND; }
+{OR}	{ return OR; }
+{NOT}	{ return NOT; }
+{TRUE}	{ return TRUE; }
+{FALSE}	{ return FALSE; }
+{RETURN}	{ return RETURN; }
+{IF}	{ return IF; }
+{ELSE}	{ return ELSE; }
+{WHILE}	{ return WHILE; }
+{BREAK}	{ return BREAK; }
+{CONTINUE}	{ return CONTINUE; }
+{SC}	{ return SC; }
+{COMMA}	{ return COMMA; }
+{LPAREN}	{ return LPAREN; }
+{RPAREN}	{ return RPAREN; }
+{LBRACE}	{ return LBRACE; }
+{RBRACE}	{ return RBRACE; }
+{LBRACK}	{ return LBRACK; }
+{RBRACK}	{ return RBRACK; }
+{ASSIGN}	{ return ASSIGN; }
+{RELOP}	{ return RELOP; }
+{BINOP}	{ return BINOP; }
+{ID}	{ return ID; }
+{NUM}	{ return NUM; }
+{NUM_B}	{ return NUM_B; }
+"//"[^\r\n]* { return COMMENT; }
 
 \"      { resetBuffer(buffer); BEGIN(STRING_COND); }
 <STRING_COND>\"      {BEGIN(INITIAL); return STRING; }
@@ -72,9 +98,13 @@ NUM_B {NUM}b
 <STRING_COND>\\\"     {appendChar(buffer, '\"');}
 <STRING_COND>\\0     {appendChar(buffer, '\0');}
 <STRING_COND>{hex}     {appendChar(buffer, hexToChar(yytext));}
-<STRING_COND>{new_line}       {output::errorUnclosedString();}
-<STRING_COND>\\.      {output::errorUndefinedEscape(yytext);}
+<STRING_COND>{new_line} {output::errorUnclosedString();}
+<STRING_COND>\\.      {output::errorUndefinedEscape(yytext + 1);}
 <STRING_COND>.       {appendChar(buffer, yytext[0]);}
+<STRING_COND><<EOF>> {output::errorUnclosedString();}
+
+{whitespace} {}
+. {output::errorUnknownChar(yytext[0]);}
 
 %%
 
