@@ -17,7 +17,7 @@ char hexToChar(char *s);
 
 digit [0-9]
 pos_digit [1-9]
-letter [a-zA-z]
+letter [a-zA-Z]
 whitespace [ \t\r\n]
 
 %x STRING_COND 
