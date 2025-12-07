@@ -9,7 +9,6 @@
 char buffer[BUFFER_SIZE];
 void resetBuffer(char buffer[BUFFER_SIZE]);
 void appendChar(char buffer[BUFFER_SIZE], char c);
-char hexToChar(char *s);
 %}
 
 %option yylineno
@@ -23,7 +22,7 @@ whitespace [ \t\r\n]
 %x STRING_COND 
 
 VOID void
-INT int 
+INT int
 BYTE byte 
 BOOL bool 
 AND and 
@@ -51,7 +50,6 @@ BINOP "+"|"-"|"*"|"\/"
 
 
 new_line  [\n\r]
-hex \\x(([2-6][0-9A-Fa-f])|(7[0-9A-Ea-e]))
 ID {letter}({letter}|{digit})*
 NUM ({pos_digit}{digit}*)|0
 NUM_B {NUM}b
@@ -87,7 +85,7 @@ NUM_B {NUM}b
 {ID}	{ return ID; }
 {NUM}	{ return NUM; }
 {NUM_B}	{ return NUM_B; }
-"//"[^\r\n]* { return COMMENT; }
+"//"[^\r\n]* {}
 
 \"      { resetBuffer(buffer); BEGIN(STRING_COND); }
 <STRING_COND>\"      {BEGIN(INITIAL); return STRING; }
@@ -97,14 +95,13 @@ NUM_B {NUM}b
 <STRING_COND>\\\\    {appendChar(buffer, '\\');}
 <STRING_COND>\\\"     {appendChar(buffer, '\"');}
 <STRING_COND>\\0     {appendChar(buffer, '\0');}
-<STRING_COND>{hex}     {appendChar(buffer, hexToChar(yytext));}
-<STRING_COND>{new_line} {output::errorUnclosedString();}
-<STRING_COND>(\\x({letter}|{digit})?({letter}|{digit}))|(\\.)      {output::errorUndefinedEscape(yytext + 1);}
+<STRING_COND>{new_line} {output::errorLex(yylineno);}
+<STRING_COND>(\\x({letter}|{digit})?({letter}|{digit}))|(\\.)      {output::errorLex(yylineno);}
 <STRING_COND>.       {appendChar(buffer, yytext[0]);}
-<STRING_COND><<EOF>> {output::errorUnclosedString();}
+<STRING_COND><<EOF>> {output::errorLex(yylineno);}
 
 {whitespace} {}
-. {output::errorUnknownChar(yytext[0]);}
+. {output::errorLex(yylineno);}
 
 %%
 
@@ -119,23 +116,5 @@ void appendChar(char buffer[BUFFER_SIZE], char c) {
     buffer[len] = c;
     buffer[len + 1] = '\0';
 }
-
-//Function to convert a hex character to an int
-int hexCharToInt(char c) {
-    if (c >= '0' && c <= '9') {
-        return c - '0';
-    }
-    if (c >= 'A' && c <= 'F') {
-        return c - 'A' + 10;
-    }
-    return c - 'a' + 10;
-}
-
-//Function to convert hex to a character
-char hexToChar(char *s) {
-    int ascii = hexCharToInt(s[2]) * 16 + hexCharToInt(s[3]);
-    return ascii;
-}
-
 
 
