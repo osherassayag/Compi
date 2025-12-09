@@ -37,11 +37,11 @@ using namespace std;
 Program:  Funcs { program = $1; }
 ;
 
-Funcs:
-    | FuncsDecl Funcs
+Funcs: {$$ = std::make_shared<ast::Funcs>(); }
+    | FuncsDecl Funcs {$$ = $2; $$.push_front($1); }
 ;
 
-FuncsDecl: RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE
+FuncsDecl: RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$ = std::make_shared<ast::FuncDecl>($2, $1, $4, $7); }
 ;
 
 RetType: Type
@@ -68,14 +68,14 @@ Statement: LBRACE Statements RBRACE {$$ = $2;}
     | Type ID SC {$$ = std::make_shared<ast::VarDecl>($2, $1); }
     | Type ID ASSIGN Exp SC {$$ = std::make_shared<ast::VarDecl>($2, $1, $4); }
     | ID ASSIGN Exp SC {$$ = std::make_shared<ast::Assign>($1, $3); }
-    | Call SC
-    | RETURN SC
-    | RETURN Exp SC
+    | Call SC {$$ = $1;}
+    | RETURN SC {$$ = std::make_shared<ast::Return>(); }
+    | RETURN Exp SC {$$ = std::make_shared<ast::Return>($2); }
     | IF LPAREN Exp RPAREN Statement
     | IF LPAREN Exp RPAREN Statement ELSE Statement
-    | WHILE LPAREN Exp RPAREN Statement
-    | BREAK SC
-    | CONTINUE SC
+    | WHILE LPAREN Exp RPAREN Statement {$$ = std::make_shared<ast::While>($3, $5); }
+    | BREAK SC {$$ = std::make_shared<ast::Break>(); }
+    | CONTINUE SC {$$ = std::make_shared<ast::Continue>(); }
 ;
 
 Call: ID LPAREN ExpList RPAREN  {$$ = std::make_shared<ast::Call>($1, $3); }
