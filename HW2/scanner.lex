@@ -45,10 +45,20 @@ RBRACE "}"
 LBRACK "["
 RBRACK "]"
 ASSIGN "="
-RELOP "=="|"!="|"<"|">"|"<="|">="
-BINOP "+"|"-"|"*"|"\/"
-
-
+//RELOP "=="|"!="|"<"|">"|"<="|">="
+//BINOP "+"|"-"|"*"|"\/"
+//EQUALITY "==" | "!="
+EQ "=="
+NQ "!="
+ADD "+"
+DEC "-"
+MULT "*"
+DIV "/"
+GT ">"
+LT "<"
+GE ">="
+LE "<="
+//RELATIONAL "<"|">"|"<="|">="
 new_line  [\n\r]
 ID {letter}({letter}|{digit})*
 NUM ({pos_digit}{digit}*)|0
@@ -56,9 +66,9 @@ NUM_B {NUM}b
 
 %%
 
-{VOID}  {return VOID;}
+{VOID}  { return VOID;}
 {INT}   {return INT;}
-{BYTE}  {return BYTE;}
+{BYTE}  { return BYTE;}
 {BOOL}	{ return BOOL; }
 {AND}	{ return AND; }
 {OR}	{ return OR; }
@@ -80,15 +90,26 @@ NUM_B {NUM}b
 {LBRACK}	{ return LBRACK; }
 {RBRACK}	{ return RBRACK; }
 {ASSIGN}	{ return ASSIGN; }
-{RELOP}	{ return RELOP; }
-{BINOP}	{ return BINOP; }
-{ID}	{ return ID; }
-{NUM}	{ return NUM; }
-{NUM_B}	{ return NUM_B; }
+{EQ} {return EQ;}
+{NQ} {return NQ;}
+{DEC} {return DEC;}
+{ADD} {return ADD;}
+//{RELATIONAL} {return RELATIONAL;}
+{MULT} {return MULT;}
+{DIV} {return DIV;}
+{GT} {return GT;}
+{GE} {return GE;}
+{LT} {return LT;}
+{LE} {return LE;}
+//{RELOP}	{ return RELOP; }
+//{BINOP}	{ return BINOP; }
+{ID}	{yylval = std::make_shared<ast::ID>(yytext); return ID; }
+{NUM}	{yylval = std::make_shared<ast::Num>(yytext); return NUM; }
+{NUM_B}	{yylval = std::make_shared<ast::NumB>(yytext); return NUM_B; }
 "//"[^\r\n]* {}
 
 \"      { resetBuffer(buffer); BEGIN(STRING_COND); }
-<STRING_COND>\"      {BEGIN(INITIAL); return STRING; }
+<STRING_COND>\"      {BEGIN(INITIAL); yylval = std::make_shared<ast::String>(buffer); return STRING; }
 <STRING_COND>\\n     {appendChar(buffer, '\n');}
 <STRING_COND>\\r     {appendChar(buffer, '\r');}
 <STRING_COND>\\t     {appendChar(buffer, '\t');}
