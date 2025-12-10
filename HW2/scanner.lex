@@ -106,8 +106,8 @@ NUM_B {NUM}b
 {NUM_B}	{std::dynamic_pointer_cast<ast::NumB>(yylval); yylval = std::make_shared<ast::NumB>(yytext); return NUM_B; }
 "//"[^\r\n]* {}
 
-\"      { resetBuffer(buffer); BEGIN(STRING_COND); }
-<STRING_COND>\"      {yylval = std::make_shared<ast::String>(buffer); BEGIN(INITIAL);  return STRING; }
+\"      { resetBuffer(buffer); appendChar(buffer, '"'); BEGIN(STRING_COND); }
+<STRING_COND>\"      {appendChar(buffer, '"'); yylval = std::make_shared<ast::String>(buffer); BEGIN(INITIAL);  return STRING; }
 <STRING_COND>\\n     {appendChar(buffer, '\n');}
 <STRING_COND>\\r     {appendChar(buffer, '\r');}
 <STRING_COND>\\t     {appendChar(buffer, '\t');}
