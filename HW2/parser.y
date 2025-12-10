@@ -13,6 +13,10 @@ std::shared_ptr<ast::Node> program;
 using namespace std;
 %}
 
+%code requires {
+    #include "nodes.hpp"
+}
+
 %token INT BYTE BOOL VOID TRUE FALSE RETURN WHILE BREAK CONTINUE ID NUM NUM_B STRING SC COMMA
 %token IF
 %nonassoc ELSE
