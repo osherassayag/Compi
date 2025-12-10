@@ -1,5 +1,6 @@
 %{
-#include "tokens.hpp"
+#include "parser.tab.h"
+//#include "tokens.hpp"
 #include "output.hpp"
 #include <stdio.h>
 #include <string.h>
@@ -45,9 +46,7 @@ RBRACE "}"
 LBRACK "["
 RBRACK "]"
 ASSIGN "="
-//RELOP "=="|"!="|"<"|">"|"<="|">="
-//BINOP "+"|"-"|"*"|"\/"
-//EQUALITY "==" | "!="
+
 EQ "=="
 NQ "!="
 ADD "+"
@@ -58,7 +57,7 @@ GT ">"
 LT "<"
 GE ">="
 LE "<="
-//RELATIONAL "<"|">"|"<="|">="
+
 new_line  [\n\r]
 ID {letter}({letter}|{digit})*
 NUM ({pos_digit}{digit}*)|0
@@ -94,22 +93,21 @@ NUM_B {NUM}b
 {NQ} {return NQ;}
 {DEC} {return DEC;}
 {ADD} {return ADD;}
-//{RELATIONAL} {return RELATIONAL;}
+
 {MULT} {return MULT;}
 {DIV} {return DIV;}
 {GT} {return GT;}
 {GE} {return GE;}
 {LT} {return LT;}
 {LE} {return LE;}
-//{RELOP}	{ return RELOP; }
-//{BINOP}	{ return BINOP; }
-{ID}	{yylval = std::make_shared<ast::ID>(yytext); return ID; }
-{NUM}	{yylval = std::make_shared<ast::Num>(yytext); return NUM; }
-{NUM_B}	{yylval = std::make_shared<ast::NumB>(yytext); return NUM_B; }
+
+{ID}	{std::dynamic_pointer_cast<ast::ID>(yylval); yylval = std::make_shared<ast::ID>(yytext); return ID; }
+{NUM}	{std::dynamic_pointer_cast<ast::Num>(yylval); yylval = std::make_shared<ast::Num>(yytext); return NUM; }
+{NUM_B}	{std::dynamic_pointer_cast<ast::NumB>(yylval); yylval = std::make_shared<ast::NumB>(yytext); return NUM_B; }
 "//"[^\r\n]* {}
 
 \"      { resetBuffer(buffer); BEGIN(STRING_COND); }
-<STRING_COND>\"      {yylval = std::make_shared<ast::String>(buffer); BEGIN(INITIAL);  return STRING; }
+<STRING_COND>\"      {std::dynamic_pointer_cast<ast::String>(yylval); yylval = std::make_shared<ast::String>(buffer); BEGIN(INITIAL);  return STRING; }
 <STRING_COND>\\n     {appendChar(buffer, '\n');}
 <STRING_COND>\\r     {appendChar(buffer, '\r');}
 <STRING_COND>\\t     {appendChar(buffer, '\t');}

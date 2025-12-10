@@ -18,7 +18,7 @@ using namespace std;
 %}
 
 
-%token INT BYTE BOOL TRUE FALSE RETURN WHILE BREAK CONTINUE ID NUM NUM_B STRING SC COMMA
+%token INT BYTE BOOL VOID TRUE FALSE RETURN WHILE BREAK CONTINUE ID NUM NUM_B STRING SC COMMA
 %token IF
 %nonassoc ELSE
 %right ASSIGN
@@ -29,7 +29,7 @@ using namespace std;
 %left EQ NQ
 %left ADD DEC
 %left MULT DIV
-%left LPAREN RPAREN LBRACK RBRACK
+%left LPAREN RPAREN LBRACK RBRACK LBRACE RBRACE
 
 %%
 
@@ -39,7 +39,7 @@ Program:  Funcs { program = $1; }
 ;
 
 Funcs: {$$ = std::make_shared<ast::Funcs>(); }
-    | FuncsDecl Funcs { $2->push_front($1); $$ = $2;}
+    | FuncsDecl Funcs { std::dynamic_pointer_cast<ast::Funcs>($2)->push_front($1); $$ = $2;}
 ;
 
 FuncsDecl: RetType ID LPAREN Formals RPAREN LBRACE Statements RBRACE {$$ = std::make_shared<ast::FuncDecl>($2, $1, $4, $7); }
@@ -54,30 +54,32 @@ Formals: {{$$ = std::make_shared<ast::Formals>();}}
 ;
 
 FormalsList: FormalDecl {$$ = std::make_shared<ast::Formals>($1);}
-    | FormalDecl COMMA FormalsList { $3->push_front($1); $$ = $3;}
+    | FormalDecl COMMA FormalsList { std::dynamic_pointer_cast<ast::Formals>($3)->push_front($1); $$ = std::dynamic_pointer_cast<ast::Formals>($3);}
 ;
 
 FormalDecl: Type ID {$$ = std::make_shared<ast::Formal>($2, $1); }
 ;
 
 Statements: Statement {$$ = std::make_shared<ast::Statements>($1);}
-    | Statements Statement {$1->push_back($2); $$ = $1; }
+    | Statements Statement {std::dynamic_pointer_cast<ast::Statements>($1)->push_back($2); $$ = std::dynamic_pointer_cast<ast::Statements>($1); }
 ;
 
 
 Statement:
-      MatchedStatement
-    | UnmatchedStatement
+      MatchedStatement {$$ = $1;}
+    | UnmatchedStatement {$$ = $1;}
     ;
 
 MatchedStatement:
-      RegularStatement
-    | IF LPAREN Exp RPAREN MatchedStatement ELSE MatchedStatement
+      RegularStatement {$$ = $1;}
+    | IF LPAREN Exp RPAREN MatchedStatement ELSE MatchedStatement  {$$ = std::make_shared<ast::If>($3, $5, $7); }
+    | WHILE LPAREN Exp RPAREN MatchedStatement  {$$ = std::make_shared<ast::While>($3, $5); }
     ;
 
 UnmatchedStatement:
-      IF LPAREN Exp RPAREN Statement
-    | IF LPAREN Exp RPAREN MatchedStatement ELSE UnmatchedStatement
+      IF LPAREN Exp RPAREN Statement {$$ = std::make_shared<ast::If>($3, $5); }
+    | IF LPAREN Exp RPAREN MatchedStatement ELSE UnmatchedStatement {$$ = std::make_shared<ast::If>($3, $5, $7); }
+    | WHILE LPAREN Exp RPAREN UnmatchedStatement  {$$ = std::make_shared<ast::While>($3, $5); }
     ;
 
 
@@ -91,7 +93,6 @@ RegularStatement: LBRACE Statements RBRACE {$$ = $2;}
      | RETURN Exp SC {$$ = std::make_shared<ast::Return>($2); }
      | BREAK SC {$$ = std::make_shared<ast::Break>(); }
      | CONTINUE SC {$$ = std::make_shared<ast::Continue>(); }
-     | WHILE LPAREN Exp RPAREN Statement {$$ = std::make_shared<ast::While>($3, $5); }
 ;
 
 Call: ID LPAREN ExpList RPAREN  {$$ = std::make_shared<ast::Call>($1, $3); }
@@ -99,17 +100,17 @@ Call: ID LPAREN ExpList RPAREN  {$$ = std::make_shared<ast::Call>($1, $3); }
 ;
 
 ExpList: Exp {$$ = std::make_shared<ast::ExpList>($1); }
-    | Exp COMMA ExpList  {$3->push_front($1); $$ = $3; }
+    | Exp COMMA ExpList  {std::dynamic_pointer_cast<ast::ExpList>($3)->push_front($1); $$ = std::dynamic_pointer_cast<ast::ExpList>($3); }
 ;
 
-Type: INT {$$ = std::make_shared<ast::Type>(ast::BuiltInType::INT)}
-    | BYTE {$$ = std::make_shared<ast::Type>(ast::BuiltInType::BYTE)}
-    | BOOL {$$ = std::make_shared<ast::Type>(ast::BuiltInType::BOOL)}
+Type: INT {$$ = std::make_shared<ast::Type>(ast::BuiltInType::INT);}
+    | BYTE {$$ = std::make_shared<ast::Type>(ast::BuiltInType::BYTE);}
+    | BOOL {$$ = std::make_shared<ast::Type>(ast::BuiltInType::BOOL);}
 ;
 
 Exp: LPAREN Exp RPAREN {$$ = $2; }
     | Exp ADD Exp {$$ = std::make_shared<ast::BinOp>($1, $3, ast::BinOpType::ADD); }
-    | Exp DEC Exp {$$ = std::make_shared<ast::BinOp>($1, $3, ast::BinOpType::DEC);}
+    | Exp DEC Exp {$$ = std::make_shared<ast::BinOp>($1, $3, ast::BinOpType::SUB);}
     | Exp MULT Exp {$$ = std::make_shared<ast::BinOp>($1, $3, ast::BinOpType::MUL); }
     | Exp DIV Exp {$$ = std::make_shared<ast::BinOp>($1, $3, ast::BinOpType::DIV); }
     | ID {$$ = $1;}
