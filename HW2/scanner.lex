@@ -109,7 +109,7 @@ NUM_B {NUM}b
 "//"[^\r\n]* {}
 
 \"      { resetBuffer(buffer); BEGIN(STRING_COND); }
-<STRING_COND>\"      {BEGIN(INITIAL); yylval = std::make_shared<ast::String>(buffer); return STRING; }
+<STRING_COND>\"      {yylval = std::make_shared<ast::String>(buffer); BEGIN(INITIAL);  return STRING; }
 <STRING_COND>\\n     {appendChar(buffer, '\n');}
 <STRING_COND>\\r     {appendChar(buffer, '\r');}
 <STRING_COND>\\t     {appendChar(buffer, '\t');}
