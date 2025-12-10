@@ -1,9 +1,9 @@
 %{
 #include "parser.tab.h"
-//#include "tokens.hpp"
 #include "output.hpp"
 #include <stdio.h>
 #include <string.h>
+#include "nodes.hpp"
 
 #define BUFFER_SIZE 1024
 
@@ -101,7 +101,7 @@ NUM_B {NUM}b
 {LT} {return LT;}
 {LE} {return LE;}
 
-{ID}	{std::dynamic_pointer_cast<ast::ID>(yylval); yylval = std::make_shared<ast::ID>(yytext); return ID; }
+{ID}	{ yylval = std::make_shared<ast::ID>(yytext); return ID; }
 {NUM}	{std::dynamic_pointer_cast<ast::Num>(yylval); yylval = std::make_shared<ast::Num>(yytext); return NUM; }
 {NUM_B}	{std::dynamic_pointer_cast<ast::NumB>(yylval); yylval = std::make_shared<ast::NumB>(yytext); return NUM_B; }
 "//"[^\r\n]* {}
