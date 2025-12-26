@@ -2,6 +2,7 @@
 #include "output.hpp"
 #include "nodes.hpp"
 #include "tokens.hpp"
+#include "MyVisitor.h"
 
 using namespace std;
 
@@ -82,6 +83,6 @@ int main() {
     yyparse();
 
     // Print the AST using the PrintVisitor
-    output::PrintVisitor printVisitor;
-    program->accept(printVisitor);
+    MyVisitor visitor;
+    program->accept(visitor);
 }
