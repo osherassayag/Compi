@@ -27,7 +27,6 @@ class MyVisitor : public Visitor {
     Entry* lookup(const std::string& name);
     std::vector<std::string> getFuncParamTypeStrings(std::shared_ptr<ast::ExpList> args);
     static std::string toString(ast::BuiltInType type);
-    std::vector<std::pair<std::string, int>> undeclaredFuncs;
     bool isNumeric(ast::BuiltInType type);
 
 public:

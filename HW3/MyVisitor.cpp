@@ -88,7 +88,7 @@ void MyVisitor::visit(ast::ID& node) {
     if (!node.isDeclaration) {
         if (!e) {
             if (node.isUsedAsFunction) {
-                undeclaredFuncs.push_back(std::pair<std::string, int>(node.value, node.line));
+                output::errorUndefFunc(node.line, node.value);
             } else {
                 output::errorUndef(node.line, node.value);
             }
