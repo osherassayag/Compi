@@ -12,6 +12,7 @@
 #include <memory>
 
 MyVisitor::MyVisitor() {
+    tables.push(std::make_shared<SymbolTable>(SymbolTable()));
     scopeOffsets.push(0);
     funcDeclBeginScope = false;
     declareBuiltInFunc("print", ast::BuiltInType::VOID,
@@ -20,7 +21,36 @@ MyVisitor::MyVisitor() {
     declareBuiltInFunc("printi", ast::BuiltInType::VOID,
                        std::vector<ast::BuiltInType>(1, ast::BuiltInType::INT)
     );
-    tables.push(std::make_shared<SymbolTable>(SymbolTable()));
+}
+
+void MyVisitor::declareBuiltInFunc(std::string id, ast::BuiltInType return_type,
+                                   const std::vector<ast::BuiltInType> &paramTypes) {
+    scopePrinter.emitFunc(id, return_type, paramTypes);
+    tables.top()->insert(id, std::make_shared<FuncType>(paramTypes, return_type), -100);
+}
+
+void MyVisitor::declareFunc(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> return_type,
+                            const std::shared_ptr<ast::Formals> &formals) {
+    Entry* e = lookup(id->value);
+    if (e) {
+        output::errorDef(id->line, id->value);
+    }
+    std::vector<ast::BuiltInType> paramTypes;
+    for (auto formal : formals->formals) {
+        paramTypes.push_back(formal->type->type);
+    }
+    tables.top()->insert(id->value, std::make_shared<FuncType>(paramTypes, return_type->type), -100);
+    scopePrinter.emitFunc(id->value, return_type->type, paramTypes);
+}
+
+void MyVisitor::declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> type,
+                           int offset) {
+    Entry* e = lookup(id->value);
+    if (e) {
+        output::errorDef(id->line, id->value);
+    }
+    tables.top()->insert(id->value, std::make_shared<BasicType>(type->type), offset);
+    scopePrinter.emitVar(id->value, type->type, offset);
 }
 
 void MyVisitor::beginScope() {
@@ -63,7 +93,16 @@ void MyVisitor::visit(ast::ID& node) {
                 output::errorUndef(node.line, node.value);
             }
         } else {
-            node.type = dynamic_cast<BasicType*>(e->type.get())->getDeclaredType();
+            if (node.isUsedAsFunction) {
+                FuncType *funcType = dynamic_cast<FuncType*>(e->type.get());
+                if (funcType != nullptr) {
+                    node.type = funcType->getReturnType();
+                } else {
+                    output::errorDefAsVar(node.line, node.value);
+                }
+            } else {
+                node.type = dynamic_cast<BasicType *>(e->type.get())->getDeclaredType();
+            }
         }
     } else {
 
@@ -84,10 +123,14 @@ void MyVisitor::visit(ast::BinOp &node) {
 
 }
 
+bool MyVisitor::isNumeric(ast::BuiltInType type) {
+    return (type == ast::BuiltInType::INT || type == ast::BuiltInType::BYTE);
+}
+
 void MyVisitor::visit(ast::RelOp &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
-    if (node.left->type != node.right->type)
+    if (!isNumeric(node.left->type) || !isNumeric(node.right->type))
         output::errorMismatch(node.line);
 
     node.type = ast::BuiltInType::BOOL;
@@ -95,16 +138,19 @@ void MyVisitor::visit(ast::RelOp &node) {
 
 void MyVisitor::visit(ast::Not &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
+    node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::And &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::Or &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::Type &node) {
@@ -222,16 +268,6 @@ void MyVisitor::visit(ast::While &node) {
     endScope();
 }
 
-void MyVisitor::declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> type,
-                           int offset) {
-    Entry* e = lookup(id->value);
-    if (e) {
-        output::errorDef(id->line, id->value);
-    }
-    tables.top()->insert(id->value, std::make_shared<BasicType>(type->type), offset);
-    scopePrinter.emitVar(id->value, type->type, offset);
-}
-
 void MyVisitor::visit(ast::VarDecl &node) {
     declareVar(node.id, node.type, scopeOffsets.top());
     scopeOffsets.top()++;
@@ -263,27 +299,7 @@ void MyVisitor::visit(ast::Formals &node) {
     }
 }
 
-void MyVisitor::declareBuiltInFunc(std::string id, ast::BuiltInType return_type,
-                                   const std::vector<ast::BuiltInType> &paramTypes) {
-    scopePrinter.emitFunc(id, return_type, paramTypes);
-}
-
-void MyVisitor::declareFunc(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> return_type,
-                            const std::shared_ptr<ast::Formals> &formals) {
-    Entry* e = lookup(id->value);
-    if (e) {
-        output::errorDef(id->line, id->value);
-    }
-    std::vector<ast::BuiltInType> paramTypes;
-    for (auto formal : formals->formals) {
-        paramTypes.push_back(formal->type->type);
-    }
-    tables.top()->insert(id->value, std::make_shared<FuncType>(paramTypes, return_type->type), -100);
-    scopePrinter.emitFunc(id->value, return_type->type, paramTypes);
-}
-
 void MyVisitor::visit(ast::FuncDecl &node) {
-    declareFunc(node.id, node.return_type, node.formals);
     beginScope();
     funcDeclBeginScope = true;
     if (node.id.get() != nullptr) {
@@ -297,6 +313,14 @@ void MyVisitor::visit(ast::FuncDecl &node) {
 }
 
 void MyVisitor::visit(ast::Funcs &node) {
+    // First, add all functions to the symbol table, so we can check their types later
+    for (auto& funcPtr: node.funcs) {
+        if (funcPtr.get() != nullptr) {
+            declareFunc(funcPtr->id, funcPtr->return_type, funcPtr->formals);
+        }
+    }
+
+    // Now start visiting the tree
     for (auto& funcPtr: node.funcs) {
         if (funcPtr.get() != nullptr) funcPtr->accept(*this);
     }
