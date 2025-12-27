@@ -4,54 +4,87 @@
 
 #include <iostream>
 #include "MyVisitor.h"
+#include "FuncType.h"
+#include "BasicType.h"
+#include <vector>
+#include <stack>
+#include <string>
+#include <memory>
 
 MyVisitor::MyVisitor() {
     scopeOffsets.push(0);
     funcDeclBeginScope = false;
     declareBuiltInFunc("print", ast::BuiltInType::VOID,
-                       std::vector(1, ast::BuiltInType::STRING));
+                       std::vector<ast::BuiltInType>(1, ast::BuiltInType::STRING)
+    );
     declareBuiltInFunc("printi", ast::BuiltInType::VOID,
-                       std::vector(1, ast::BuiltInType::INT));
+                       std::vector<ast::BuiltInType>(1, ast::BuiltInType::INT)
+    );
 }
 
 void MyVisitor::beginScope() {
     scopePrinter.beginScope();
     scopeOffsets.push(scopeOffsets.top());
+    tables.push(std::make_shared<SymbolTable>(SymbolTable()));
 }
+
 
 void MyVisitor::endScope() {
     scopePrinter.endScope();
     scopeOffsets.pop();
+    tables.pop();
+}
+void MyVisitor::visit(ast::Num& node) {
+    if (node.value > 255)
+        output::errorByteTooLarge(node.line, node.value);
+    node.type = ast::BuiltInType::INT;
 }
 
-void MyVisitor::visit(ast::Num &node) {
-
+void MyVisitor::visit(ast::NumB& node) {
+    if (node.value > 255)
+        output::errorByteTooLarge(node.line, node.value);
+    node.type = ast::BuiltInType::BYTE;
 }
 
-void MyVisitor::visit(ast::NumB &node) {
-
+void MyVisitor::visit(ast::String& node) {
+    node.type = ast::BuiltInType::STRING;
 }
 
-void MyVisitor::visit(ast::String &node) {
-
+void MyVisitor::visit(ast::Bool& node) {
+    node.type = ast::BuiltInType::BOOL;
 }
 
-void MyVisitor::visit(ast::Bool &node) {
 
+void MyVisitor::visit(ast::ID& node) {
+    Entry* e = lookup(node.value);
+    if (!e)
+        output::errorUndef(node.line, node.value);
+
+    if (dynamic_cast<FuncType*>(e->type.get()))
+        output::errorDefAsFunc(node.line, node.value);
+
+    node.type = dynamic_cast<BasicType*>(e->type.get())->getDeclaredType();
 }
 
-void MyVisitor::visit(ast::ID &node) {
-
-}
 
 void MyVisitor::visit(ast::BinOp &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    if (node.left->type != ast::BuiltInType::INT ||
+        node.right->type != ast::BuiltInType::INT)
+        output::errorMismatch(node.line);
+
+    node.type = ast::BuiltInType::INT;
+
 }
 
 void MyVisitor::visit(ast::RelOp &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    if (node.left->type != node.right->type)
+        output::errorMismatch(node.line);
+
+    node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::Not &node) {
@@ -86,6 +119,25 @@ void MyVisitor::visit(ast::ExpList &node) {
 void MyVisitor::visit(ast::Call &node) {
     if (node.func_id.get() != nullptr) node.func_id->accept(*this);
     if (node.args.get() != nullptr) node.args->accept(*this);
+    Entry* e = lookup(node.func_id->value);
+    if (!e)
+        output::errorUndefFunc(node.line, node.func_id->value);
+
+    auto ftype = dynamic_cast<FuncType*>(e->type.get());
+    if (!ftype)
+        output::errorDefAsVar(node.line, node.func_id->value);
+
+    node.args->accept(*this);
+
+    if (node.args->exps.size() != ftype->getArgTypes().size())
+        output::errorPrototypeMismatch(node.line, node.func_id->value, node.args);
+
+    for (size_t i = 0; i < node.args->exps.size(); ++i) {
+        if (node.args->exps[i]->type != ftype->getArgTypes()[i])
+            output::errorMismatch(node.line);
+    }
+
+    node.type = ftype->getReturnType();
 }
 
 void MyVisitor::visit(ast::Statements &node) {
@@ -150,6 +202,8 @@ void MyVisitor::visit(ast::VarDecl &node) {
 void MyVisitor::visit(ast::Assign &node) {
     if (node.id.get() != nullptr) node.id->accept(*this);
     if (node.exp.get() != nullptr) node.exp->accept(*this);
+    if (node.id->type != node.exp->type)
+        output::errorMismatch(node.line);
 }
 
 void MyVisitor::visit(ast::Formal &node) {
@@ -196,4 +250,21 @@ void MyVisitor::visit(ast::Funcs &node) {
     }
     std::cout << scopePrinter;
 }
+
+Entry* MyVisitor::lookup(const std::string& name) {
+    std::stack<std::shared_ptr<SymbolTable>> tmp = tables;
+    while (!tmp.empty()) {
+        auto& table = tmp.top();
+        if (table.get()->contains();
+            return table.get(name);
+        tmp.pop();
+    }
+    return nullptr;
+}
+
+void MyVisitor::checkNotDefinedAnywhere(const std::string& name, int line) {
+    if (lookup(name))
+        output::errorDef(line, name);
+}
+
 
