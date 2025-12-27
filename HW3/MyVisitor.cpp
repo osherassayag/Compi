@@ -101,14 +101,17 @@ void MyVisitor::visit(ast::ID& node) {
                     output::errorDefAsVar(node.line, node.value);
                 }
             } else {
-                node.type = dynamic_cast<BasicType *>(e->type.get())->getDeclaredType();
+                BasicType *basicType = dynamic_cast<BasicType *>(e->type.get());
+                if (basicType != nullptr) {
+                    node.type = basicType->getDeclaredType();
+                } else {
+                    output::errorDefAsFunc(node.line, node.value);
+                }
             }
         }
     } else {
-
+        // declaration handled by the parent
     }
-//    if (dynamic_cast<FuncType*>(e->type.get()))
-//        output::errorDefAsFunc(node.line, node.value);
 }
 
 
