@@ -15,6 +15,7 @@ class MyVisitor : public Visitor {
     output::ScopePrinter scopePrinter;
     std::stack<int> scopeOffsets;
     std::stack<std::shared_ptr<SymbolTable>> tables;
+    ast::BuiltInType currentFuncType;
     bool funcDeclBeginScope;
     void beginScope();
     void endScope();
@@ -28,6 +29,7 @@ class MyVisitor : public Visitor {
     std::vector<std::string> getFuncParamTypeStrings(std::shared_ptr<ast::ExpList> args);
     static std::string toString(ast::BuiltInType type);
     bool isNumeric(ast::BuiltInType type);
+    bool isAssignable(ast::BuiltInType target, ast::BuiltInType source);
 
 public:
     MyVisitor();

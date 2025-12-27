@@ -15,6 +15,7 @@ MyVisitor::MyVisitor() {
     tables.push(std::make_shared<SymbolTable>(SymbolTable()));
     scopeOffsets.push(0);
     funcDeclBeginScope = false;
+    currentFuncType = ast::BuiltInType::VOID;
     declareBuiltInFunc("print", ast::BuiltInType::VOID,
                        std::vector<ast::BuiltInType>(1, ast::BuiltInType::STRING)
     );
@@ -118,12 +119,14 @@ void MyVisitor::visit(ast::ID& node) {
 void MyVisitor::visit(ast::BinOp &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
-    if (node.left->type != ast::BuiltInType::INT ||
-        node.right->type != ast::BuiltInType::INT)
+    if (!isNumeric(node.left->type) || !isNumeric(node.right->type))
         output::errorMismatch(node.line);
 
-    node.type = ast::BuiltInType::INT;
-
+    if (node.left->type == ast::BuiltInType::INT || node.right->type == ast::BuiltInType::INT) {
+        node.type = ast::BuiltInType::INT;
+    } else {
+        node.type = ast::BuiltInType::BYTE;
+    }
 }
 
 bool MyVisitor::isNumeric(ast::BuiltInType type) {
@@ -163,6 +166,7 @@ void MyVisitor::visit(ast::Type &node) {
 void MyVisitor::visit(ast::Cast &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
     if (node.target_type.get() != nullptr) node.target_type->accept(*this);
+    node.type = node.target_type->type;
 }
 
 void MyVisitor::visit(ast::ExpList &node) {
@@ -218,7 +222,7 @@ void MyVisitor::visit(ast::Call &node) {
     }
 
     for (size_t i = 0; i < node.args->exps.size(); ++i) {
-        if (node.args->exps[i]->type != ftype->getArgTypes()[i])
+        if (!isAssignable(ftype->getArgTypes()[i], node.args->exps[i]->type))
             output::errorMismatch(node.line);
     }
 
@@ -249,6 +253,9 @@ void MyVisitor::visit(ast::Continue &node) {
 
 void MyVisitor::visit(ast::Return &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
+    if (!isAssignable(currentFuncType, node.exp->type)) {
+        output::errorMismatch(node.exp->line);
+    }
 }
 
 void MyVisitor::visit(ast::If &node) {
@@ -282,10 +289,15 @@ void MyVisitor::visit(ast::VarDecl &node) {
     if (node.init_exp.get() != nullptr) node.init_exp->accept(*this);
 }
 
+bool MyVisitor::isAssignable(ast::BuiltInType target, ast::BuiltInType source) {
+    return target == source ||
+           (target == ast::BuiltInType::INT && source == ast::BuiltInType::BYTE);
+}
+
 void MyVisitor::visit(ast::Assign &node) {
     if (node.id.get() != nullptr) node.id->accept(*this);
     if (node.exp.get() != nullptr) node.exp->accept(*this);
-    if (node.id->type != node.exp->type)
+    if (!isAssignable(node.id->type, node.exp->type))
         output::errorMismatch(node.line);
 }
 
@@ -309,10 +321,14 @@ void MyVisitor::visit(ast::FuncDecl &node) {
         node.id->isDeclaration = true;
         node.id->accept(*this);
     }
-    if (node.return_type.get() != nullptr) node.return_type->accept(*this);
+    if (node.return_type.get() != nullptr) {
+        node.return_type->accept(*this);
+        currentFuncType = node.return_type->type;
+    }
     if (node.formals.get() != nullptr) node.formals->accept(*this);
     if (node.body.get() != nullptr)  node.body->accept(*this);
     endScope();
+    currentFuncType = ast::BuiltInType::VOID;
 }
 
 void MyVisitor::visit(ast::Funcs &node) {
