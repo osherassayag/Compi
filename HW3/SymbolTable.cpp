@@ -5,7 +5,7 @@
 #include <string>
 SymbolTable::SymbolTable() = default;
 
-void SymbolTable::Insert(const std::string& name,
+void SymbolTable::insert(const std::string& name,
                          std::shared_ptr<SymbType> type,
                          int offset) {
     Entry e;

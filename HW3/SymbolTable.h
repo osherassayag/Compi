@@ -19,7 +19,7 @@ class SymbolTable {
 private:
     std::unordered_map<std::string, Entry> symbols;
 public:
-    void Insert(const std::string& name,
+    void insert(const std::string& name,
                 std::shared_ptr<SymbType> type,
                 int offset);
     SymbolTable();

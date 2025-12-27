@@ -121,7 +121,10 @@ namespace ast {
     public:
         // Name of the identifier
         std::string value;
-
+        // Is this ID being declared
+        bool isDeclaration;
+        // Is this ID being used as the name of a function in a call
+        bool isUsedAsFunction;
         // Constructor that receives a C-style string that represents the identifier
         explicit ID(const char *str);
 

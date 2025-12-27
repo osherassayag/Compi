@@ -20,6 +20,7 @@ MyVisitor::MyVisitor() {
     declareBuiltInFunc("printi", ast::BuiltInType::VOID,
                        std::vector<ast::BuiltInType>(1, ast::BuiltInType::INT)
     );
+    tables.push(std::make_shared<SymbolTable>(SymbolTable()));
 }
 
 void MyVisitor::beginScope() {
@@ -35,8 +36,6 @@ void MyVisitor::endScope() {
     tables.pop();
 }
 void MyVisitor::visit(ast::Num& node) {
-    if (node.value > 255)
-        output::errorByteTooLarge(node.line, node.value);
     node.type = ast::BuiltInType::INT;
 }
 
@@ -54,16 +53,23 @@ void MyVisitor::visit(ast::Bool& node) {
     node.type = ast::BuiltInType::BOOL;
 }
 
-
 void MyVisitor::visit(ast::ID& node) {
     Entry* e = lookup(node.value);
-    if (!e)
-        output::errorUndef(node.line, node.value);
+    if (!node.isDeclaration) {
+        if (!e) {
+            if (node.isUsedAsFunction) {
+                undeclaredFuncs.push_back(std::pair<std::string, int>(node.value, node.line));
+            } else {
+                output::errorUndef(node.line, node.value);
+            }
+        } else {
+            node.type = dynamic_cast<BasicType*>(e->type.get())->getDeclaredType();
+        }
+    } else {
 
-    if (dynamic_cast<FuncType*>(e->type.get()))
-        output::errorDefAsFunc(node.line, node.value);
-
-    node.type = dynamic_cast<BasicType*>(e->type.get())->getDeclaredType();
+    }
+//    if (dynamic_cast<FuncType*>(e->type.get()))
+//        output::errorDefAsFunc(node.line, node.value);
 }
 
 
@@ -142,7 +148,10 @@ std::vector<std::string> MyVisitor::getFuncParamTypeStrings(std::shared_ptr<ast:
 }
 
 void MyVisitor::visit(ast::Call &node) {
-    if (node.func_id.get() != nullptr) node.func_id->accept(*this);
+    if (node.func_id.get() != nullptr) {
+        node.func_id->isUsedAsFunction = true;
+        node.func_id->accept(*this);
+    }
     if (node.args.get() != nullptr) node.args->accept(*this);
     Entry* e = lookup(node.func_id->value);
     if (!e)
@@ -215,13 +224,21 @@ void MyVisitor::visit(ast::While &node) {
 
 void MyVisitor::declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> type,
                            int offset) {
+    Entry* e = lookup(id->value);
+    if (e) {
+        output::errorDef(id->line, id->value);
+    }
+    tables.top()->insert(id->value, std::make_shared<BasicType>(type->type), offset);
     scopePrinter.emitVar(id->value, type->type, offset);
 }
 
 void MyVisitor::visit(ast::VarDecl &node) {
     declareVar(node.id, node.type, scopeOffsets.top());
     scopeOffsets.top()++;
-    if (node.id.get() != nullptr) node.id->accept(*this);
+    if (node.id.get() != nullptr) {
+        node.id->isDeclaration = true;
+        node.id->accept(*this);
+    }
     if (node.type.get() != nullptr) node.type->accept(*this);
     if (node.init_exp.get() != nullptr) node.init_exp->accept(*this);
 }
@@ -253,10 +270,15 @@ void MyVisitor::declareBuiltInFunc(std::string id, ast::BuiltInType return_type,
 
 void MyVisitor::declareFunc(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> return_type,
                             const std::shared_ptr<ast::Formals> &formals) {
+    Entry* e = lookup(id->value);
+    if (e) {
+        output::errorDef(id->line, id->value);
+    }
     std::vector<ast::BuiltInType> paramTypes;
     for (auto formal : formals->formals) {
         paramTypes.push_back(formal->type->type);
     }
+    tables.top()->insert(id->value, std::make_shared<FuncType>(paramTypes, return_type->type), -100);
     scopePrinter.emitFunc(id->value, return_type->type, paramTypes);
 }
 
@@ -264,7 +286,10 @@ void MyVisitor::visit(ast::FuncDecl &node) {
     declareFunc(node.id, node.return_type, node.formals);
     beginScope();
     funcDeclBeginScope = true;
-    if (node.id.get() != nullptr) node.id->accept(*this);
+    if (node.id.get() != nullptr) {
+        node.id->isDeclaration = true;
+        node.id->accept(*this);
+    }
     if (node.return_type.get() != nullptr) node.return_type->accept(*this);
     if (node.formals.get() != nullptr) node.formals->accept(*this);
     if (node.body.get() != nullptr)  node.body->accept(*this);

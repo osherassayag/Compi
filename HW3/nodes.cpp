@@ -19,7 +19,7 @@ namespace ast {
 
     Bool::Bool(bool value) : Exp(), value(value) {}
 
-    ID::ID(const char *str) : Exp(), value(str) {}
+    ID::ID(const char *str) : Exp(), value(str), isDeclaration(false), isUsedAsFunction(false) {}
 
     BinOp::BinOp(std::shared_ptr<Exp> left, std::shared_ptr<Exp> right, BinOpType op)
             : Exp(), left(std::move(left)), right(std::move(right)), op(op) {}
