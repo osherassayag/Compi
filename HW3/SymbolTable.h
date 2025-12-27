@@ -2,8 +2,7 @@
 // Created by roro1 on 27/12/2025.
 //
 
-#ifndef COMPI_SYMBOLTABLE_H
-#define COMPI_SYMBOLTABLE_H
+#pragma once
 #include <string>
 #include <unordered_map>
 #include <memory>
@@ -24,8 +23,8 @@ public:
                 std::shared_ptr<SymbType> type,
                 int offset);
     SymbolTable();
-    bool contains(const std::string name&);
+    bool contains(const std::string& name);
+    Entry *get(const std::string& name);
     virtual ~SymbolTable();
 
 };
-#endif //COMPI_SYMBOLTABLE_H

@@ -9,14 +9,18 @@ void SymbolTable::Insert(const std::string& name,
                          std::shared_ptr<SymbType> type,
                          int offset) {
     Entry e;
-    e.type = *type.get();
+    e.type = type;
     e.offset = offset;
     e.name = name;
     symbols[name] = e;
 }
 
-bool SymbolTable::contains(const std::string name&) {
+bool SymbolTable::contains(const std::string& name) {
     return symbols.find(name) != symbols.end();
+}
+
+Entry *SymbolTable::get(const std::string& name) {
+    return &(symbols.find(name)->second);
 }
 
 SymbolTable::~SymbolTable() = default;

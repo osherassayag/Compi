@@ -2,8 +2,7 @@
 // Created by roro1 on 27/12/2025.
 //
 
-#ifndef COMPI_FUNCTYPE_H
-#define COMPI_FUNCTYPE_H
+#pragma once
 #include "nodes.hpp"
 #include "SymbType.h"
 #include <vector>
@@ -22,4 +21,3 @@ public:
     void setReturnType(ast::BuiltInType retType);
     bool IsSameType(const FuncType& other) const;
 };
-#endif //COMPI_FUNCTYPE_H

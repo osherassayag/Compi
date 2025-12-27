@@ -116,6 +116,31 @@ void MyVisitor::visit(ast::ExpList &node) {
     }
 }
 
+std::string MyVisitor::toString(ast::BuiltInType type) {
+    switch (type) {
+        case ast::BuiltInType::INT:
+            return "int";
+        case ast::BuiltInType::BOOL:
+            return "bool";
+        case ast::BuiltInType::BYTE:
+            return "byte";
+        case ast::BuiltInType::VOID:
+            return "void";
+        case ast::BuiltInType::STRING:
+            return "string";
+        default:
+            return "unknown";
+    }
+}
+
+std::vector<std::string> MyVisitor::getFuncParamTypeStrings(std::shared_ptr<ast::ExpList> args) {
+    std::vector<std::string> types;
+    for (auto exp: args->exps) {
+        types.push_back(toString(exp->type));
+    }
+    return types;
+}
+
 void MyVisitor::visit(ast::Call &node) {
     if (node.func_id.get() != nullptr) node.func_id->accept(*this);
     if (node.args.get() != nullptr) node.args->accept(*this);
@@ -129,8 +154,10 @@ void MyVisitor::visit(ast::Call &node) {
 
     node.args->accept(*this);
 
-    if (node.args->exps.size() != ftype->getArgTypes().size())
-        output::errorPrototypeMismatch(node.line, node.func_id->value, node.args);
+    if (node.args->exps.size() != ftype->getArgTypes().size()) {
+        auto types = getFuncParamTypeStrings(node.args);
+        output::errorPrototypeMismatch(node.line, node.func_id->value, types);
+    }
 
     for (size_t i = 0; i < node.args->exps.size(); ++i) {
         if (node.args->exps[i]->type != ftype->getArgTypes()[i])
@@ -255,8 +282,8 @@ Entry* MyVisitor::lookup(const std::string& name) {
     std::stack<std::shared_ptr<SymbolTable>> tmp = tables;
     while (!tmp.empty()) {
         auto& table = tmp.top();
-        if (table.get()->contains();
-            return table.get(name);
+        if (table.get()->contains(name))
+            return table.get()->get(name);
         tmp.pop();
     }
     return nullptr;
