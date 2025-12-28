@@ -16,6 +16,8 @@ class MyVisitor : public Visitor {
     std::stack<int> scopeOffsets;
     std::stack<std::shared_ptr<SymbolTable>> tables;
     ast::BuiltInType currentFuncType;
+    int loop_depth;
+    bool hasMain;
     bool funcDeclBeginScope;
     void beginScope();
     void endScope();

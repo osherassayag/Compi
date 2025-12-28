@@ -12,6 +12,8 @@
 #include <memory>
 
 MyVisitor::MyVisitor() {
+    hasMain = false;
+    loop_depth = 0;
     tables.push(std::make_shared<SymbolTable>(SymbolTable()));
     scopeOffsets.push(0);
     funcDeclBeginScope = false;
@@ -144,18 +146,26 @@ void MyVisitor::visit(ast::RelOp &node) {
 
 void MyVisitor::visit(ast::Not &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
+    if (node.exp->type != ast::BuiltInType::BOOL)
+        output::errorMismatch(node.line);
     node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::And &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    if (node.left->type != ast::BuiltInType::BOOL
+        || node.right->type != ast::BOOL)
+        output::errorMismatch(node.line);
     node.type = ast::BuiltInType::BOOL;
 }
 
 void MyVisitor::visit(ast::Or &node) {
     if (node.left.get() != nullptr) node.left->accept(*this);
     if (node.right.get() != nullptr) node.right->accept(*this);
+    if (node.left->type != ast::BuiltInType::BOOL
+        || node.right->type != ast::BOOL)
+        output::errorMismatch(node.line);
     node.type = ast::BuiltInType::BOOL;
 }
 
@@ -166,6 +176,9 @@ void MyVisitor::visit(ast::Type &node) {
 void MyVisitor::visit(ast::Cast &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
     if (node.target_type.get() != nullptr) node.target_type->accept(*this);
+    if((node.exp->type != ast::INT && node.exp->type != ast::BYTE)
+        || (node.target_type->type != ast::INT && node.target_type->type != ast::BYTE))
+            output::errorMismatch(node.line);
     node.type = node.target_type->type;
 }
 
@@ -244,17 +257,23 @@ void MyVisitor::visit(ast::Statements &node) {
 }
 
 void MyVisitor::visit(ast::Break &node) {
-
+    if(loop_depth == 0) output::errorUnexpectedBreak(node.line);
 }
 
 void MyVisitor::visit(ast::Continue &node) {
-
+    if(loop_depth == 0) output::errorUnexpectedContinue(node.line);
 }
 
 void MyVisitor::visit(ast::Return &node) {
-    if (node.exp.get() != nullptr) node.exp->accept(*this);
-    if (!isAssignable(currentFuncType, node.exp->type)) {
-        output::errorMismatch(node.exp->line);
+    ast::BuiltInType returnType = ast::BuiltInType::VOID;
+
+    if (node.exp.get() != nullptr) {
+        node.exp->accept(*this);
+        returnType = node.exp->type;
+    }
+
+    if (!isAssignable(currentFuncType, returnType)) {
+        output::errorMismatch(node.line);
     }
 }
 
@@ -262,6 +281,8 @@ void MyVisitor::visit(ast::If &node) {
     beginScope();
     if (node.condition.get() != nullptr) node.condition->accept(*this);
     if (node.then.get() != nullptr) node.then->accept(*this);
+    if(node.condition->type != ast::BOOL)
+        output::errorMismatch(node.line);
     endScope();
     if (node.otherwise.get() != nullptr) {
         beginScope();
@@ -274,19 +295,28 @@ void MyVisitor::visit(ast::If &node) {
 void MyVisitor::visit(ast::While &node) {
     beginScope();
     if (node.condition.get() != nullptr) node.condition->accept(*this);
+    if(node.condition->type != ast::BOOL)
+        output::errorMismatch(node.line);
+    loop_depth++;
     if (node.body.get() != nullptr) node.body->accept(*this);
+    loop_depth--;
     endScope();
 }
 
 void MyVisitor::visit(ast::VarDecl &node) {
-    declareVar(node.id, node.type, scopeOffsets.top());
-    scopeOffsets.top()++;
     if (node.id.get() != nullptr) {
         node.id->isDeclaration = true;
-        node.id->accept(*this);
     }
     if (node.type.get() != nullptr) node.type->accept(*this);
-    if (node.init_exp.get() != nullptr) node.init_exp->accept(*this);
+    if (node.init_exp.get() != nullptr) {
+        node.init_exp->accept(*this);
+
+        if (!isAssignable(node.type->type, node.init_exp->type))
+            output::errorMismatch(node.line);
+    }
+
+    declareVar(node.id, node.type, scopeOffsets.top());
+    scopeOffsets.top()++;
 }
 
 bool MyVisitor::isAssignable(ast::BuiltInType target, ast::BuiltInType source) {
@@ -333,33 +363,42 @@ void MyVisitor::visit(ast::FuncDecl &node) {
 
 void MyVisitor::visit(ast::Funcs &node) {
     // First, add all functions to the symbol table, so we can check their types later
-    for (auto& funcPtr: node.funcs) {
+    for (auto &funcPtr: node.funcs) {
         if (funcPtr.get() != nullptr) {
             declareFunc(funcPtr->id, funcPtr->return_type, funcPtr->formals);
+
+            if (funcPtr->id->value == "main" &&
+                funcPtr->return_type->type == ast::BuiltInType::VOID &&
+                funcPtr->formals->formals.empty()) {
+                hasMain = true;
+
+
+            }
         }
-    }
 
-    // Now start visiting the tree
-    for (auto& funcPtr: node.funcs) {
-        if (funcPtr.get() != nullptr) funcPtr->accept(*this);
-    }
-    std::cout << scopePrinter;
-}
+        // Now start visiting the tree
+        for (auto &funcPtr: node.funcs) {
+            if (funcPtr.get() != nullptr) funcPtr->accept(*this);
+        }
 
-Entry* MyVisitor::lookup(const std::string& name) {
-    std::stack<std::shared_ptr<SymbolTable>> tmp = tables;
-    while (!tmp.empty()) {
-        auto& table = tmp.top();
-        if (table.get()->contains(name))
-            return table.get()->get(name);
-        tmp.pop();
+        if (!hasMain)
+            output::errorMainMissing();
+        std::cout << scopePrinter;
     }
-    return nullptr;
 }
-
-void MyVisitor::checkNotDefinedAnywhere(const std::string& name, int line) {
-    if (lookup(name))
-        output::errorDef(line, name);
-}
+    Entry *MyVisitor::lookup(const std::string &name) {
+        std::stack<std::shared_ptr<SymbolTable>> tmp = tables;
+        while (!tmp.empty()) {
+            auto &table = tmp.top();
+            if (table.get()->contains(name))
+                return table.get()->get(name);
+            tmp.pop();
+        }
+        return nullptr;
+    }
+    void MyVisitor::checkNotDefinedAnywhere(const std::string &name, int line) {
+        if (lookup(name))
+            output::errorDef(line, name);
+    }
 
 
