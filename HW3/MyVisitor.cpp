@@ -147,7 +147,7 @@ void MyVisitor::visit(ast::RelOp &node) {
 void MyVisitor::visit(ast::Not &node) {
     if (node.exp.get() != nullptr) node.exp->accept(*this);
     if (node.exp->type != ast::BuiltInType::BOOL)
-        output::errorMismatch(node.line);
+        output::errorMismatch(node.exp->line);
     node.type = ast::BuiltInType::BOOL;
 }
 
@@ -178,7 +178,7 @@ void MyVisitor::visit(ast::Cast &node) {
     if (node.target_type.get() != nullptr) node.target_type->accept(*this);
     if((node.exp->type != ast::INT && node.exp->type != ast::BYTE)
         || (node.target_type->type != ast::INT && node.target_type->type != ast::BYTE))
-            output::errorMismatch(node.line);
+            output::errorMismatch(node.exp->line);
     node.type = node.target_type->type;
 }
 
@@ -205,38 +205,43 @@ std::string MyVisitor::toString(ast::BuiltInType type) {
     }
 }
 
-std::vector<std::string> MyVisitor::getFuncParamTypeStrings(std::shared_ptr<ast::ExpList> args) {
+std::vector<std::string> MyVisitor::getFuncParamTypeStrings(const std::vector<ast::BuiltInType>& argTypes) {
     std::vector<std::string> types;
-    for (auto exp: args->exps) {
-        types.push_back(toString(exp->type));
+    for (auto type : argTypes) {
+        std::string typeStr = toString(type);
+        // Convert to uppercase
+        for (char& c : typeStr) {
+            c = std::toupper(c);
+        }
+        types.push_back(typeStr);
     }
     return types;
 }
-
 void MyVisitor::visit(ast::Call &node) {
+    Entry* e = lookup(node.func_id->value);
+    if (!e) {
+        output::errorUndefFunc(node.func_id->line, node.func_id->value);
+    }
+
+    auto ftype = dynamic_cast<FuncType*>(e->type.get());
+    if (!ftype) {
+        output::errorDefAsVar(node.line, node.func_id->value);
+    }
+
     if (node.func_id.get() != nullptr) {
         node.func_id->isUsedAsFunction = true;
         node.func_id->accept(*this);
     }
     if (node.args.get() != nullptr) node.args->accept(*this);
-    Entry* e = lookup(node.func_id->value);
-    if (!e)
-        output::errorUndefFunc(node.line, node.func_id->value);
 
-    auto ftype = dynamic_cast<FuncType*>(e->type.get());
-    if (!ftype)
-        output::errorDefAsVar(node.line, node.func_id->value);
-
-    node.args->accept(*this);
-
+    auto types = getFuncParamTypeStrings(ftype->getArgTypes());
     if (node.args->exps.size() != ftype->getArgTypes().size()) {
-        auto types = getFuncParamTypeStrings(node.args);
         output::errorPrototypeMismatch(node.line, node.func_id->value, types);
     }
 
     for (size_t i = 0; i < node.args->exps.size(); ++i) {
         if (!isAssignable(ftype->getArgTypes()[i], node.args->exps[i]->type))
-            output::errorMismatch(node.line);
+            output::errorPrototypeMismatch(node.line, node.func_id->value, types);
     }
 
     node.type = ftype->getReturnType();
@@ -282,7 +287,7 @@ void MyVisitor::visit(ast::If &node) {
     if (node.condition.get() != nullptr) node.condition->accept(*this);
     if (node.then.get() != nullptr) node.then->accept(*this);
     if(node.condition->type != ast::BOOL)
-        output::errorMismatch(node.line);
+        output::errorMismatch(node.condition->line);
     endScope();
     if (node.otherwise.get() != nullptr) {
         beginScope();
@@ -296,7 +301,7 @@ void MyVisitor::visit(ast::While &node) {
     beginScope();
     if (node.condition.get() != nullptr) node.condition->accept(*this);
     if(node.condition->type != ast::BOOL)
-        output::errorMismatch(node.line);
+        output::errorMismatch(node.condition->line);
     loop_depth++;
     if (node.body.get() != nullptr) node.body->accept(*this);
     loop_depth--;
@@ -371,20 +376,18 @@ void MyVisitor::visit(ast::Funcs &node) {
                 funcPtr->return_type->type == ast::BuiltInType::VOID &&
                 funcPtr->formals->formals.empty()) {
                 hasMain = true;
-
-
             }
         }
-
-        // Now start visiting the tree
-        for (auto &funcPtr: node.funcs) {
-            if (funcPtr.get() != nullptr) funcPtr->accept(*this);
-        }
-
-        if (!hasMain)
-            output::errorMainMissing();
-        std::cout << scopePrinter;
     }
+
+    // Now start visiting the tree
+    for (auto &funcPtr: node.funcs) {
+        if (funcPtr.get() != nullptr) funcPtr->accept(*this);
+    }
+
+    if (!hasMain)
+        output::errorMainMissing();
+    std::cout << scopePrinter;
 }
     Entry *MyVisitor::lookup(const std::string &name) {
         std::stack<std::shared_ptr<SymbolTable>> tmp = tables;

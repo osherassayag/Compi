@@ -28,7 +28,7 @@ class MyVisitor : public Visitor {
     void declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> type, int offset);
     void checkNotDefinedAnywhere(const std::string& name, int line);
     Entry* lookup(const std::string& name);
-    std::vector<std::string> getFuncParamTypeStrings(std::shared_ptr<ast::ExpList> args);
+    std::vector<std::string> getFuncParamTypeStrings(const std::vector<ast::BuiltInType>& argTypes);
     static std::string toString(ast::BuiltInType type);
     bool isNumeric(ast::BuiltInType type);
     bool isAssignable(ast::BuiltInType target, ast::BuiltInType source);
