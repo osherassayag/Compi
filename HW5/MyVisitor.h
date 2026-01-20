@@ -10,9 +10,10 @@
 #include <stack>
 #include "visitor.hpp"
 #include "output.hpp"
+#include "nodes.hpp"
 #include "SymbolTable.h"
 class MyVisitor : public Visitor {
-    output::ScopePrinter scopePrinter;
+    output::CodeBuffer buffer;
     std::stack<int> scopeOffsets;
     std::stack<std::shared_ptr<SymbolTable>> tables;
     ast::BuiltInType currentFuncType;
@@ -32,7 +33,7 @@ class MyVisitor : public Visitor {
     static std::string toString(ast::BuiltInType type);
     bool isNumeric(ast::BuiltInType type);
     bool isAssignable(ast::BuiltInType target, ast::BuiltInType source);
-
+    std::string mapBinOp(ast::BinOpType binOpType, ast::BuiltInType operandType);
 public:
     MyVisitor();
 

@@ -54,6 +54,7 @@ namespace ast {
     public:
         Exp() = default;
         BuiltInType type;
+        std::string place;
     };
 
     /* Base class for all statements */
@@ -125,6 +126,8 @@ namespace ast {
         bool isDeclaration;
         // Is this ID being used as the name of a function in a call
         bool isUsedAsFunction;
+        //Is this identifier being used as a lvalue
+        bool isLvalue;
         // Constructor that receives a C-style string that represents the identifier
         explicit ID(const char *str);
 

@@ -28,7 +28,7 @@ MyVisitor::MyVisitor() {
 
 void MyVisitor::declareBuiltInFunc(std::string id, ast::BuiltInType return_type,
                                    const std::vector<ast::BuiltInType> &paramTypes) {
-    scopePrinter.emitFunc(id, return_type, paramTypes);
+    buffer.emitFunc(id, return_type, paramTypes);
     tables.top()->insert(id, std::make_shared<FuncType>(paramTypes, return_type), -100);
 }
 
@@ -43,7 +43,7 @@ void MyVisitor::declareFunc(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Ty
         paramTypes.push_back(formal->type->type);
     }
     tables.top()->insert(id->value, std::make_shared<FuncType>(paramTypes, return_type->type), -100);
-    scopePrinter.emitFunc(id->value, return_type->type, paramTypes);
+    buffer.emitFunc(id->value, return_type->type, paramTypes);
 }
 
 void MyVisitor::declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> type,
@@ -53,29 +53,33 @@ void MyVisitor::declareVar(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Typ
         output::errorDef(id->line, id->value);
     }
     tables.top()->insert(id->value, std::make_shared<BasicType>(type->type), offset);
-    scopePrinter.emitVar(id->value, type->type, offset);
+    buffer.emitVar(id->value, type->type, offset);
 }
 
 void MyVisitor::beginScope() {
-    scopePrinter.beginScope();
+    buffer.beginScope();
     scopeOffsets.push(scopeOffsets.top());
     tables.push(std::make_shared<SymbolTable>(SymbolTable()));
 }
 
 
 void MyVisitor::endScope() {
-    scopePrinter.endScope();
+    buffer.endScope();
     scopeOffsets.pop();
     tables.pop();
 }
 void MyVisitor::visit(ast::Num& node) {
     node.type = ast::BuiltInType::INT;
+    std::string temp = buffer.freshVar();
+    node.place = temp;
 }
 
 void MyVisitor::visit(ast::NumB& node) {
     if (node.value > 255)
         output::errorByteTooLarge(node.line, node.value);
     node.type = ast::BuiltInType::BYTE;
+    std::string temp = buffer.freshVar();
+    node.place = temp;
 }
 
 void MyVisitor::visit(ast::String& node) {
@@ -97,6 +101,7 @@ void MyVisitor::visit(ast::ID& node) {
             }
         } else {
             if (node.isUsedAsFunction) {
+                node.place = "@" + node.value;
                 FuncType *funcType = dynamic_cast<FuncType*>(e->type.get());
                 if (funcType != nullptr) {
                     node.type = funcType->getReturnType();
@@ -109,6 +114,14 @@ void MyVisitor::visit(ast::ID& node) {
                     node.type = basicType->getDeclaredType();
                 } else {
                     output::errorDefAsFunc(node.line, node.value);
+                }
+                if(!node.isLvalue) {
+                    std::string temp = buffer.freshVar();
+                    //Handle different types
+
+                    //load
+                    buffer.emit(temp + " = load i32 , i32* " + )
+
                 }
             }
         }
@@ -123,14 +136,31 @@ void MyVisitor::visit(ast::BinOp &node) {
     if (node.right.get() != nullptr) node.right->accept(*this);
     if (!isNumeric(node.left->type) || !isNumeric(node.right->type))
         output::errorMismatch(node.line);
-
+    std::string temp = buffer.freshVar();
     if (node.left->type == ast::BuiltInType::INT || node.right->type == ast::BuiltInType::INT) {
+        buffer.emit(temp + " = " + mapBinOp(node.op, ast::INT) + " i32 " + node.left->place + node.right->place);
+        node.place = temp;
         node.type = ast::BuiltInType::INT;
     } else {
+        buffer.emit(temp + " = " + mapBinOp(node.op, ast::BYTE) + " i32 " + node.left->place + node.right->place);
+        node.place = temp;
         node.type = ast::BuiltInType::BYTE;
     }
 }
 
+std::string MyVisitor::mapBinOp(ast::BinOpType binOpType, ast::BuiltInType operandType) {
+    switch (binOpType) {
+        case ast::ADD:
+            return "add";
+        case ast::MUL:
+            return "mul";
+        case ast::SUB:
+            return "sub";
+        case ast::DIV:
+            if(operandType == ast::INT) return "sdiv";
+            return "udiv";
+    }
+}
 bool MyVisitor::isNumeric(ast::BuiltInType type) {
     return (type == ast::BuiltInType::INT || type == ast::BuiltInType::BYTE);
 }
@@ -319,6 +349,10 @@ void MyVisitor::visit(ast::VarDecl &node) {
         if (!isAssignable(node.type->type, node.init_exp->type))
             output::errorMismatch(node.line);
     }
+    else { //Giving default value
+        if(node.type.get()->type == ast::BuiltInType::INT || node.type.get()->type == ast::BuiltInType::BYTE)
+
+    }
 
     declareVar(node.id, node.type, scopeOffsets.top());
     scopeOffsets.top()++;
@@ -387,7 +421,7 @@ void MyVisitor::visit(ast::Funcs &node) {
 
     if (!hasMain)
         output::errorMainMissing();
-    std::cout << scopePrinter;
+    std::cout << buffer;
 }
     Entry *MyVisitor::lookup(const std::string &name) {
         std::stack<std::shared_ptr<SymbolTable>> tmp = tables;
