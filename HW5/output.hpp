@@ -54,29 +54,29 @@ namespace output {
         CodeBuffer();
 
         // Returns a string that represents a label not used before
-        // Usage examples:
-        //      emitLabel(freshLabel());
-        //      buffer << "br label " << freshLabel() << std::endl;
         std::string freshLabel();
 
         // Returns a string that represents a variable not used before
-        // Usage examples:
-        //      std::string var = freshVar();
-        //      buffer << var << " = icmp eq i32 0, 0" << std::endl;
         std::string freshVar();
 
         // Emits a label into the buffer
         void emitLabel(const std::string &label);
 
         // Emits a constant string into the globals section of the code.
-        // Returns the name of the constant. For the string of the length n (not including null character), the type is [n+1 x i8]
-        // Usage examples:
-        //      std::string str = emitString("Hello, World!");
-        //      buffer << "call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([14 x i8], [14 x i8]* " << str << ", i32 0, i32 0))" << std::endl;
         std::string emitString(const std::string &str);
 
         // Emits a string into the buffer
         void emit(const std::string &str);
+
+        // Emit global declarations
+        void emitGlobal(const std::string &str);
+
+        // Helper methods for scope management (now empty - for compatibility)
+        void beginScope() {}
+        void endScope() {}
+        void emitFunc(const std::string& id, ast::BuiltInType retType, 
+                     const std::vector<ast::BuiltInType>& paramTypes) {}
+        void emitVar(const std::string& id, ast::BuiltInType type, int offset) {}
 
         // Template overload for general types
         template<typename T>

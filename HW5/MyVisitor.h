@@ -8,10 +8,12 @@
 #include <string>
 #include <memory>
 #include <stack>
+#include <map>
 #include "visitor.hpp"
 #include "output.hpp"
 #include "nodes.hpp"
 #include "SymbolTable.h"
+
 class MyVisitor : public Visitor {
     output::CodeBuffer buffer;
     std::stack<int> scopeOffsets;
@@ -20,6 +22,12 @@ class MyVisitor : public Visitor {
     int loop_depth;
     bool hasMain;
     bool funcDeclBeginScope;
+    
+    // LLVM code generation fields
+    std::map<std::string, std::string> varToRegister;  // Maps variable names to their stack pointers
+    std::stack<std::string> breakLabels;  // Stack of break labels for nested loops
+    std::stack<std::string> continueLabels;  // Stack of continue labels for nested loops
+    
     void beginScope();
     void endScope();
     void declareFunc(std::shared_ptr<ast::ID> id, std::shared_ptr<ast::Type> return_type,
@@ -34,58 +42,42 @@ class MyVisitor : public Visitor {
     bool isNumeric(ast::BuiltInType type);
     bool isAssignable(ast::BuiltInType target, ast::BuiltInType source);
     std::string mapBinOp(ast::BinOpType binOpType, ast::BuiltInType operandType);
+    std::string mapRelOp(ast::RelOpType relOpType);
+    
+    // LLVM helper functions
+    std::string getLLVMType(ast::BuiltInType type);
+    std::string getLLVMFuncType(ast::BuiltInType retType, const std::vector<ast::BuiltInType>& argTypes);
+    void emitDivisionByZeroCheck(const std::string& divisor);
+    void initializeGlobals();
+    void emitPrintFunctions();
+    
 public:
     MyVisitor();
 
     void visit(ast::Num &node);
-
     void visit(ast::NumB &node);
-
     void visit(ast::String &node);
-
     void visit(ast::Bool &node);
-
     void visit(ast::ID &node);
-
     void visit(ast::BinOp &node);
-
     void visit(ast::RelOp &node);
-
     void visit(ast::Not &node);
-
     void visit(ast::And &node);
-
     void visit(ast::Or &node);
-
     void visit(ast::Type &node);
-
     void visit(ast::Cast &node);
-
     void visit(ast::ExpList &node);
-
     void visit(ast::Call &node);
-
     void visit(ast::Statements &node);
-
     void visit(ast::Break &node);
-
     void visit(ast::Continue &node);
-
     void visit(ast::Return &node);
-
     void visit(ast::If &node);
-
     void visit(ast::While &node);
-
     void visit(ast::VarDecl &node);
-
     void visit(ast::Assign &node);
-
     void visit(ast::Formal &node);
-
     void visit(ast::Formals &node);
-
     void visit(ast::FuncDecl &node);
-
     void visit(ast::Funcs &node);
 };
